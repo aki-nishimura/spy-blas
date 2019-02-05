@@ -43,6 +43,10 @@ cdef extern from "mkl.h":
 		SPARSE_DIAG_NON_UNIT = 50 # triangular matrix with non-unit diagonal
 		SPARSE_DIAG_UNIT = 51 # triangular matrix with unit diagonal
 
+	ctypedef enum sparse_layout_t:
+		SPARSE_LAYOUT_ROW_MAJOR = 101 # C-style
+		SPARSE_LAYOUT_COLUMN_MAJOR = 102 # Fortran-style
+
 	struct sparse_matrix:
 		pass
 
@@ -68,6 +72,15 @@ cdef extern from "mkl.h":
 		sparse_matrix_t A,
 		sparse_operation_t operation,
 		matrix_descr descr,
+		MKL_INT expected_calls
+	)
+
+	sparse_status_t mkl_sparse_set_mm_hint(
+		sparse_matrix_t A,
+		sparse_operation_t operation,
+		matrix_descr descr,
+		sparse_layout_t layout,
+		MKL_INT dense_matrix_size,
 		MKL_INT expected_calls
 	)
 
@@ -115,12 +128,17 @@ cdef class MklSparseMatrix:
 		cdef matrix_descr mat_descript
 		cdef sparse_operation_t operation
 		cdef MKL_INT expected_calls = 2 ** 31
+		cdef sparse_layout_t layout = SPARSE_LAYOUT_ROW_MAJOR
+		cdef MKL_INT dense_matrix_size = 1
 		mat_descript.type = mat_type
 		if transpose:
 			operation = SPARSE_OPERATION_TRANSPOSE
 		else:
 			operation = SPARSE_OPERATION_NON_TRANSPOSE
 		mkl_sparse_set_mv_hint(self.A, operation, mat_descript, expected_calls)
+		mkl_sparse_set_mm_hint(
+			self.A, operation, mat_descript, layout, dense_matrix_size, 0
+		)
 		optim_status = mkl_sparse_optimize(self.A)
 		assert optim_status == SPARSE_STATUS_SUCCESS
 		return optim_status
