@@ -85,13 +85,26 @@ cdef struct matrix_descr:
 	sparse_matrix_type_t type
 
 
-def mkl_csr_matvec(A_csr, x, transpose=False):
-	A = to_mkl_csr(A_csr)
-	result = np.zeros(A_csr.shape[transpose])
+cdef class MklSparseMatrix:
+	cdef sparse_matrix_t A
+	cdef nrow, ncol
+
+	def __cinit__(self, A_csr):
+		self.A = to_mkl_csr(A_csr)
+		self.nrow = A_csr.shape[0]
+		self.ncol = A_csr.shape[1]
+
+	@property
+	def shape(self):
+		return self.nrow, self.ncol
+
+
+def mkl_csr_matvec(MklSparseMatrix mkl_matrix, x, transpose=False):
+	result = np.zeros(mkl_matrix.shape[transpose])
 	cdef double[:] x_view = x
 	cdef double[:] result_view = result
 	matvec_status = mkl_csr_plain_matvec(
-		A, &x_view[0], &result_view[0], int(transpose)
+		mkl_matrix.A, &x_view[0], &result_view[0], int(transpose)
 	)
 	return result
 
