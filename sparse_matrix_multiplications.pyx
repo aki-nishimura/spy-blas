@@ -64,6 +64,15 @@ cdef extern from "mkl.h":
 		double *values
 	)
 
+	sparse_status_t mkl_sparse_set_mv_hint(
+		sparse_matrix_t A,
+		sparse_operation_t operation,
+		matrix_descr descr,
+		MKL_INT expected_calls
+	)
+
+	sparse_status_t mkl_sparse_optimize(sparse_matrix_t A)
+
 	sparse_status_t mkl_sparse_d_mv(
 		sparse_operation_t operation,
 		double alpha,
@@ -81,6 +90,7 @@ cdef extern from "mkl.h":
 		sparse_matrix_t *C
 	)
 
+
 cdef struct matrix_descr:
 	sparse_matrix_type_t type
 
@@ -89,14 +99,31 @@ cdef class MklSparseMatrix:
 	cdef sparse_matrix_t A
 	cdef nrow, ncol
 
-	def __cinit__(self, A_csr):
+	def __cinit__(self, A_csr, optimize=True, transpose=False):
 		self.A = to_mkl_csr(A_csr)
 		self.nrow = A_csr.shape[0]
 		self.ncol = A_csr.shape[1]
+		if optimize:
+			self.optimize_for_matvec(transpose)
 
 	@property
 	def shape(self):
 		return self.nrow, self.ncol
+
+	def optimize_for_matvec(
+			self, transpose, sparse_matrix_type_t mat_type=SPARSE_MATRIX_TYPE_GENERAL):
+		cdef matrix_descr mat_descript
+		cdef sparse_operation_t operation
+		cdef MKL_INT expected_calls = 2 ** 31
+		mat_descript.type = mat_type
+		if transpose:
+			operation = SPARSE_OPERATION_TRANSPOSE
+		else:
+			operation = SPARSE_OPERATION_NON_TRANSPOSE
+		mkl_sparse_set_mv_hint(self.A, operation, mat_descript, expected_calls)
+		optim_status = mkl_sparse_optimize(self.A)
+		assert optim_status == SPARSE_STATUS_SUCCESS
+		return optim_status
 
 
 def mkl_csr_matvec(MklSparseMatrix mkl_matrix, x, transpose=False):
