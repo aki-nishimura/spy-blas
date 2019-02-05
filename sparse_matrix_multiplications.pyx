@@ -84,6 +84,29 @@ cdef extern from "mkl.h":
 		MKL_INT expected_calls
 	)
 
+	sparse_status_t mkl_sparse_set_sv_hint(
+		sparse_matrix_t A,
+		sparse_operation_t operation,
+		matrix_descr descr,
+		MKL_INT expected_calls
+	)
+
+	sparse_status_t mkl_sparse_set_sm_hint(
+		sparse_matrix_t A,
+		sparse_operation_t operation,
+		matrix_descr descr,
+		sparse_layout_t layout,
+		MKL_INT dense_matrix_size,
+		MKL_INT expected_calls
+	)
+
+	sparse_status_t mkl_sparse_set_symgs_hint(
+		sparse_matrix_t A,
+		sparse_operation_t operation,
+		matrix_descr descr,
+		MKL_INT expected_calls
+	)
+
 	sparse_status_t mkl_sparse_optimize(sparse_matrix_t A)
 
 	sparse_status_t mkl_sparse_d_mv(
@@ -139,6 +162,11 @@ cdef class MklSparseMatrix:
 		mkl_sparse_set_mm_hint(
 			self.A, operation, mat_descript, layout, dense_matrix_size, 0
 		)
+		mkl_sparse_set_sv_hint(self.A, operation, mat_descript, 0)
+		mkl_sparse_set_sm_hint(
+			self.A, operation, mat_descript, layout, dense_matrix_size, 0
+		)
+		mkl_sparse_set_symgs_hint(self.A, operation, mat_descript, 0)
 		optim_status = mkl_sparse_optimize(self.A)
 		assert optim_status == SPARSE_STATUS_SUCCESS
 		return optim_status
