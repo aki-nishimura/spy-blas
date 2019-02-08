@@ -43,6 +43,10 @@ cdef extern from "mkl.h":
 		SPARSE_DIAG_NON_UNIT = 50 # triangular matrix with non-unit diagonal
 		SPARSE_DIAG_UNIT = 51 # triangular matrix with unit diagonal
 
+	ctypedef enum sparse_layout_t:
+		SPARSE_LAYOUT_ROW_MAJOR = 101 # C-style
+		SPARSE_LAYOUT_COLUMN_MAJOR = 102 # Fortran-style
+
 	struct sparse_matrix:
 		pass
 
@@ -81,6 +85,15 @@ cdef extern from "mkl.h":
 		sparse_matrix_t *C
 	)
 
+	sparse_status_t mkl_sparse_d_spmmd(
+		sparse_operation_t operation,
+		const sparse_matrix_t A,
+		const sparse_matrix_t B,
+		sparse_layout_t layout,
+		double *C,
+		MKL_INT ldc # 'leading dimension' size of the matrix C
+	)
+
 cdef struct matrix_descr:
 	sparse_matrix_type_t type
 
@@ -109,13 +122,27 @@ def mkl_csr_matvec(MklSparseMatrix mkl_matrix, x, transpose=False):
 	return result
 
 
-def mkl_csr_matmat(A_csr, B_csr):
+def mkl_csr_matmat(A_csr, B_csr, return_dense=True):
 	# cdef bint transpose_flag = int(transpose)
 	cdef sparse_operation_t operation = SPARSE_OPERATION_NON_TRANSPOSE
 	cdef sparse_matrix_t C
 	cdef sparse_matrix_t A = to_mkl_csr(A_csr)
 	cdef sparse_matrix_t B = to_mkl_csr(B_csr)
+	cdef sparse_layout_t layout
+	cdef MKL_INT nrow_C
+	cdef double[:, :] C_view
 	mkl_sparse_spmm(operation, A, B, &C)
+
+	if return_dense:
+		layout = SPARSE_LAYOUT_ROW_MAJOR
+		C_dense = np.zeros((A_csr.shape[0], B_csr.shape[1]))
+		nrow_C = C_dense.shape[1]
+		C_view = C_dense
+		mkl_sparse_d_spmmd(operation, A, B, layout, &C_view[0, 0], nrow_C)
+	else:
+		C_dense = np.zeros((0, 0)) # Place holder
+
+	return C_dense
 
 # TODO: create a class to hold the pointer to the MKL sparse matrix?
 
