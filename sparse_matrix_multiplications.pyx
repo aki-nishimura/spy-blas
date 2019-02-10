@@ -1,5 +1,7 @@
 import numpy as np
 cimport numpy as np
+import scipy as sp
+import scipy.sparse
 from cython cimport view
 
 
@@ -68,6 +70,17 @@ cdef extern from "mkl.h":
 		double *values
 	)
 
+	sparse_status_t mkl_sparse_d_export_csr(
+		const sparse_matrix_t source,
+		sparse_index_base_t *indexing,
+		MKL_INT *rows,
+		MKL_INT *cols,
+		MKL_INT **rows_start,
+		MKL_INT **rows_end,
+		MKL_INT **col_indx,
+		double **values
+	)
+
 	sparse_status_t mkl_sparse_d_mv(
 		sparse_operation_t operation,
 		double alpha,
@@ -131,18 +144,18 @@ def mkl_csr_matmat(A_csr, B_csr, return_dense=True):
 	cdef sparse_layout_t layout
 	cdef MKL_INT nrow_C
 	cdef double[:, :] C_view
-	mkl_sparse_spmm(operation, A, B, &C)
 
 	if return_dense:
 		layout = SPARSE_LAYOUT_ROW_MAJOR
-		C_dense = np.zeros((A_csr.shape[0], B_csr.shape[1]))
-		nrow_C = C_dense.shape[1]
-		C_view = C_dense
+		C_py = np.zeros((A_csr.shape[0], B_csr.shape[1]))
+		nrow_C = C_py.shape[1]
+		C_view = C_py
 		mkl_sparse_d_spmmd(operation, A, B, layout, &C_view[0, 0], nrow_C)
 	else:
-		C_dense = np.zeros((0, 0)) # Place holder
+		mkl_sparse_spmm(operation, A, B, &C)
+		C_py = to_scipy_matrix_c(C)
 
-	return C_dense
+	return C_py
 
 # TODO: create a class to hold the pointer to the MKL sparse matrix?
 
@@ -168,6 +181,36 @@ cdef sparse_matrix_t to_mkl_csr(A_csr):
 		rows_start, rows_end, col_index, values
 	)
 	return A
+
+
+cdef to_scipy_matrix_c(sparse_matrix_t A):
+	cdef MKL_INT rows
+	cdef MKL_INT cols
+	cdef sparse_index_base_t base_index=SPARSE_INDEX_BASE_ZERO
+	cdef MKL_INT* rows_start
+	cdef MKL_INT* rows_end
+	cdef MKL_INT* col_index
+	cdef double* values
+	export_status = mkl_sparse_d_export_csr(
+		A, &base_index, &rows, &cols, &rows_start, &rows_end, &col_index, &values
+	)
+	assert export_status == 0
+	cdef int nnz = rows_start[rows]
+	data = to_numpy_array(values, nnz)
+	indices = to_numpy_array(col_index, nnz)
+	indptr = np.empty(rows + 1, dtype=np.int32)
+	indptr[:-1] = to_numpy_array(rows_start, rows)
+	indptr[-1] = nnz
+	A_csr = sp.sparse.csr_matrix((data, indices, indptr), shape=(rows, cols))
+	return A_csr
+
+
+ctypedef fused int_or_double:
+	MKL_INT
+	double
+
+cdef to_numpy_array(int_or_double* c_array, arr_length):
+	return np.asarray(<int_or_double[:arr_length]> c_array)
 
 
 cdef mkl_csr_plain_matvec(
