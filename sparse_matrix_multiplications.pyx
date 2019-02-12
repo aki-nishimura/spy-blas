@@ -157,8 +157,6 @@ def mkl_csr_matmat(A_csr, B_csr, return_dense=True):
 
 	return C_py
 
-# TODO: create a class to hold the pointer to the MKL sparse matrix?
-
 
 cdef sparse_matrix_t to_mkl_csr(A_csr):
 
