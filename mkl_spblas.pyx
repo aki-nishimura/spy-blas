@@ -127,7 +127,7 @@ cdef class MklSparseMatrix:
 	cdef nrow, ncol
 
 	def __cinit__(self, A_csr):
-		self.A = to_mkl_csr(A_csr)
+		self.A = to_mkl_matrix(A_csr)
 		self.nrow = A_csr.shape[0]
 		self.ncol = A_csr.shape[1]
 
@@ -150,8 +150,8 @@ def mkl_csr_matmat(A_csr, B_csr, return_dense=True):
 	# cdef bint transpose_flag = int(transpose)
 	cdef sparse_operation_t operation = SPARSE_OPERATION_NON_TRANSPOSE
 	cdef sparse_matrix_t C
-	cdef sparse_matrix_t A = to_mkl_csr(A_csr)
-	cdef sparse_matrix_t B = to_mkl_csr(B_csr)
+	cdef sparse_matrix_t A = to_mkl_matrix(A_csr)
+	cdef sparse_matrix_t B = to_mkl_matrix(B_csr)
 	cdef sparse_layout_t layout
 	cdef MKL_INT nrow_C
 	cdef double[:, :] C_view
@@ -169,25 +169,25 @@ def mkl_csr_matmat(A_csr, B_csr, return_dense=True):
 	return C_py
 
 
-cdef sparse_matrix_t to_mkl_csr(A_csr):
+cdef sparse_matrix_t to_mkl_matrix(A_py):
 
-	cdef MKL_INT rows = A_csr.shape[0]
-	cdef MKL_INT cols = A_csr.shape[1]
+	cdef MKL_INT rows = A_py.shape[0]
+	cdef MKL_INT cols = A_py.shape[1]
 	cdef sparse_matrix_t A
 	cdef sparse_index_base_t base_index=SPARSE_INDEX_BASE_ZERO
 
-	cdef MKL_INT[:] row_ptr_array = A_csr.indptr
-	cdef MKL_INT[:] col_index_array = A_csr.indices
-	cdef double[:] value_array = A_csr.data
+	cdef MKL_INT[:] indptr_view = A_py.indptr
+	cdef MKL_INT[:] indices_view = A_py.indices
+	cdef double[:] value_view = A_py.data
 
-	cdef MKL_INT* rows_start = &row_ptr_array[0]
-	cdef MKL_INT* rows_end = &row_ptr_array[1]
-	cdef MKL_INT* col_index = &col_index_array[0]
-	cdef double* values = &value_array[0]
+	cdef MKL_INT* start = &indptr_view[0]
+	cdef MKL_INT* end = &indptr_view[1]
+	cdef MKL_INT* index = &indices_view[0]
+	cdef double* values = &value_view[0]
 
 	create_status = mkl_sparse_d_create_csr(
 		&A, base_index, rows, cols,
-		rows_start, rows_end, col_index, values
+		start, end, index, values
 	)
 	assert create_status == 0
 	return A
