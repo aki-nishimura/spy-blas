@@ -178,6 +178,7 @@ cdef sparse_matrix_t to_mkl_csr(A_csr):
 		&A, base_index, rows, cols,
 		rows_start, rows_end, col_index, values
 	)
+	assert create_status == 0
 	return A
 
 
