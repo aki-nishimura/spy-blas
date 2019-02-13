@@ -185,7 +185,12 @@ cdef sparse_matrix_t to_mkl_matrix(A_py):
 	cdef MKL_INT* index = &indices_view[0]
 	cdef double* values = &value_view[0]
 
-	create_status = mkl_sparse_d_create_csr(
+	if A_py.getformat() == 'csr':
+		mkl_sparse_d_create = mkl_sparse_d_create_csr
+	else:
+		mkl_sparse_d_create = mkl_sparse_d_create_csc
+
+	create_status = mkl_sparse_d_create(
 		&A, base_index, rows, cols,
 		start, end, index, values
 	)
