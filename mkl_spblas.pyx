@@ -150,15 +150,18 @@ cdef class MklSparseMatrix:
 	def shape(self):
 		return self.nrow, self.ncol
 
+	def dot(self, x, transpose=False):
+		result = np.zeros(self.shape[transpose])
+		cdef double[:] x_view = x
+		cdef double[:] result_view = result
+		matvec_status = mkl_plain_matvec(
+			self.A, &x_view[0], &result_view[0], int(transpose)
+		)
+		return result
 
-def mkl_matvec(MklSparseMatrix mkl_matrix, x, transpose=False):
-	result = np.zeros(mkl_matrix.shape[transpose])
-	cdef double[:] x_view = x
-	cdef double[:] result_view = result
-	matvec_status = mkl_plain_matvec(
-		mkl_matrix.A, &x_view[0], &result_view[0], int(transpose)
-	)
-	return result
+
+def mkl_matvec(A_py, x, transpose=False):
+	return MklSparseMatrix(A_py).dot(x, transpose)
 
 
 def mkl_matmat(A_py, B_py, transpose=False, return_dense=False):
