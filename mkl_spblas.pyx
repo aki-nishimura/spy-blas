@@ -92,6 +92,17 @@ cdef extern from "mkl.h":
 		double **values
 	)
 
+	sparse_status_t mkl_sparse_d_export_csc(
+		const sparse_matrix_t source,
+		sparse_index_base_t *indexing,
+		MKL_INT *rows,
+		MKL_INT *cols,
+		MKL_INT **cols_start,
+		MKL_INT **cols_end,
+		MKL_INT **row_indx,
+		double **values
+	)
+
 	sparse_status_t mkl_sparse_d_mv(
 		sparse_operation_t operation,
 		double alpha,
@@ -166,7 +177,7 @@ def mkl_matmat(A_py, B_py, return_dense=True):
 		mkl_sparse_d_spmmd(operation, A, B, layout, &C_view[0, 0], nrow_C)
 	else:
 		mkl_sparse_spmm(operation, A, B, &C)
-		C_py = to_scipy_matrix_c(C)
+		C_py = to_scipy_matrix(C, A_py.getformat())
 
 	return C_py
 
@@ -200,26 +211,34 @@ cdef sparse_matrix_t to_mkl_matrix(A_py):
 	return A
 
 
-cdef to_scipy_matrix_c(sparse_matrix_t A):
+cdef to_scipy_matrix(sparse_matrix_t A, format):
 	cdef MKL_INT rows
 	cdef MKL_INT cols
 	cdef sparse_index_base_t base_index=SPARSE_INDEX_BASE_ZERO
-	cdef MKL_INT* rows_start
-	cdef MKL_INT* rows_end
-	cdef MKL_INT* col_index
+	cdef MKL_INT* start
+	cdef MKL_INT* end
+	cdef MKL_INT* index
 	cdef double* values
-	export_status = mkl_sparse_d_export_csr(
-		A, &base_index, &rows, &cols, &rows_start, &rows_end, &col_index, &values
+
+	if format == 'csr':
+		mkl_sparse_d_export = mkl_sparse_d_export_csr
+		sp_sparse_matrix = sp.sparse.csr_matrix
+	else:
+		mkl_sparse_d_export = mkl_sparse_d_export_csc
+		sp_sparse_matrix = sp.sparse.csc_matrix
+
+	export_status = mkl_sparse_d_export(
+		A, &base_index, &rows, &cols, &start, &end, &index, &values
 	)
 	assert export_status == 0
-	cdef int nnz = rows_start[rows]
+	cdef int nnz = start[rows]
 	data = to_numpy_array(values, nnz)
-	indices = to_numpy_array(col_index, nnz)
+	indices = to_numpy_array(index, nnz)
 	indptr = np.empty(rows + 1, dtype=np.int32)
-	indptr[:-1] = to_numpy_array(rows_start, rows)
+	indptr[:-1] = to_numpy_array(start, rows)
 	indptr[-1] = nnz
-	A_csr = sp.sparse.csr_matrix((data, indices, indptr), shape=(rows, cols))
-	return A_csr
+	A_py = sp_sparse_matrix((data, indices, indptr), shape=(rows, cols))
+	return A_py
 
 
 ctypedef fused int_or_double:
