@@ -141,21 +141,21 @@ cdef class MklSparseMatrix:
 	cdef sparse_matrix_t A
 	cdef nrow, ncol
 
-	def __cinit__(self, A_csr):
-		self.A = to_mkl_matrix(A_csr)
-		self.nrow = A_csr.shape[0]
-		self.ncol = A_csr.shape[1]
+	def __cinit__(self, A_py):
+		self.A = to_mkl_matrix(A_py)
+		self.nrow = A_py.shape[0]
+		self.ncol = A_py.shape[1]
 
 	@property
 	def shape(self):
 		return self.nrow, self.ncol
 
 
-def mkl_csr_matvec(MklSparseMatrix mkl_matrix, x, transpose=False):
+def mkl_matvec(MklSparseMatrix mkl_matrix, x, transpose=False):
 	result = np.zeros(mkl_matrix.shape[transpose])
 	cdef double[:] x_view = x
 	cdef double[:] result_view = result
-	matvec_status = mkl_csr_plain_matvec(
+	matvec_status = mkl_plain_matvec(
 		mkl_matrix.A, &x_view[0], &result_view[0], int(transpose)
 	)
 	return result
@@ -266,7 +266,7 @@ cdef to_numpy_array(int_or_double* c_array, arr_length):
 	return np.asarray(<int_or_double[:arr_length]> c_array)
 
 
-cdef mkl_csr_plain_matvec(
+cdef mkl_plain_matvec(
 		sparse_matrix_t A, const double* x, double* result, bint transpose
 	):
 
