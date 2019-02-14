@@ -161,11 +161,16 @@ def mkl_csr_matvec(MklSparseMatrix mkl_matrix, x, transpose=False):
 	return result
 
 
-def mkl_matmat(A_py, B_py, return_dense=True):
+def mkl_matmat(A_py, B_py, transpose=False, return_dense=True):
+
 	if A_py.getformat() != B_py.getformat():
 		raise TypeError('The storage formats of the two matrice must coincide.')
-	# cdef bint transpose_flag = int(transpose)
-	cdef sparse_operation_t operation = SPARSE_OPERATION_NON_TRANSPOSE
+
+	if A_py.shape[1 - int(transpose)] != B_py.shape[0]:
+		raise TypeError("The matrices have incompatible dimensions.")
+
+	cdef sparse_operation_t operation
+	cdef bint transpose_flag = int(transpose)
 	cdef sparse_matrix_t C
 	cdef sparse_matrix_t A = to_mkl_matrix(A_py)
 	cdef sparse_matrix_t B = to_mkl_matrix(B_py)
@@ -173,9 +178,14 @@ def mkl_matmat(A_py, B_py, return_dense=True):
 	cdef MKL_INT nrow_C
 	cdef double[:, :] C_view
 
+	if transpose:
+		operation = SPARSE_OPERATION_TRANSPOSE
+	else:
+		operation = SPARSE_OPERATION_NON_TRANSPOSE
+
 	if return_dense:
 		layout = SPARSE_LAYOUT_ROW_MAJOR
-		C_py = np.zeros((A_py.shape[0], B_py.shape[1]))
+		C_py = np.zeros((A_py.shape[transpose], B_py.shape[1]))
 		nrow_C = C_py.shape[1]
 		C_view = C_py
 		mkl_sparse_d_spmmd(operation, A, B, layout, &C_view[0, 0], nrow_C)
