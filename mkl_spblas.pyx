@@ -133,6 +133,10 @@ cdef struct matrix_descr:
 	sparse_matrix_type_t type
 
 
+class MKLCallError(Exception):
+	pass
+
+
 cdef class MklSparseMatrix:
 	cdef sparse_matrix_t A
 	cdef nrow, ncol
@@ -207,7 +211,8 @@ cdef sparse_matrix_t to_mkl_matrix(A_py):
 		&A, base_index, rows, cols,
 		start, end, index, values
 	)
-	assert create_status == 0
+	if create_status != SPARSE_STATUS_SUCCESS:
+		raise MKLCallError("Creating an MKL sparse matrix failed.")
 	return A
 
 
@@ -230,7 +235,9 @@ cdef to_scipy_matrix(sparse_matrix_t A, format):
 	export_status = mkl_sparse_d_export(
 		A, &base_index, &rows, &cols, &start, &end, &index, &values
 	)
-	assert export_status == 0
+	if export_status != SPARSE_STATUS_SUCCESS:
+		raise MKLCallError("Exporting from an MKL sparse matrix failed.")
+
 	cdef int nnz = start[rows]
 	data = to_numpy_array(values, nnz)
 	indices = to_numpy_array(index, nnz)
