@@ -146,7 +146,9 @@ def mkl_csr_matvec(MklSparseMatrix mkl_matrix, x, transpose=False):
 	return result
 
 
-def mkl_csr_matmat(A_py, B_py, return_dense=True):
+def mkl_matmat(A_py, B_py, return_dense=True):
+	if A_py.getformat() != B_py.getformat():
+		raise TypeError('The storage formats of the two matrice must coincide.')
 	# cdef bint transpose_flag = int(transpose)
 	cdef sparse_operation_t operation = SPARSE_OPERATION_NON_TRANSPOSE
 	cdef sparse_matrix_t C
