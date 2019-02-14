@@ -70,17 +70,6 @@ cdef extern from "mkl.h":
 		double *values
 	)
 
-	# sparse_status_t mkl_sparse_d_create_csc(
-	# 	sparse_matrix_t* A,
-	# 	const sparse_index_base_t indexing,
-	# 	const MKL_INT rows,
-	# 	const MKL_INT cols,
-	# 	MKL_INT *rows_start,
-	# 	MKL_INT *rows_end,
-	# 	MKL_INT *col_indx,
-	# 	double *values
-	# )
-
 	sparse_status_t mkl_sparse_d_create_csc(
 		sparse_matrix_t* A,
 		const sparse_index_base_t indexing,
