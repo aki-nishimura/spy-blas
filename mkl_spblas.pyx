@@ -161,7 +161,7 @@ def mkl_csr_matvec(MklSparseMatrix mkl_matrix, x, transpose=False):
 	return result
 
 
-def mkl_matmat(A_py, B_py, transpose=False, return_dense=True):
+def mkl_matmat(A_py, B_py, transpose=False, return_dense=False):
 
 	if A_py.getformat() != B_py.getformat():
 		raise TypeError('The storage formats of the two matrice must coincide.')
