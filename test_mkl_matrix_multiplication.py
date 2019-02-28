@@ -1,12 +1,8 @@
 import numpy as np
 import scipy as sp
 import scipy.sparse
-from bayesbridge.design_matrix.sparse_matrix_multiplications import mkl_csr_matvec
-from bayesbridge.design_matrix import mkl_spblas
-
-import sys
-sys.path.append(".")
-sys.path.append("..")
+from .sparse_matrix_multiplications import mkl_csr_matvec
+from . import mkl_spblas
 
 
 atol = 10e-12
